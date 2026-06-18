@@ -63,6 +63,7 @@ module "lambda" {
   lambda_timeout     = var.lambda_timeout
   lambda_role_arn    = module.iam.lambda_role_arn
   s3_bucket_name     = module.s3.bucket_name
+  glue_database_name = module.glue.catalog_database_name
   common_tags        = local.common_tags
 }
 

@@ -31,3 +31,8 @@ variable "common_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "glue_database_name" {
+  description = "Name of the Glue Catalog database for partition registration"
+  type        = string
+}

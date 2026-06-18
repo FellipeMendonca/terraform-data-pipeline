@@ -21,7 +21,8 @@ resource "aws_lambda_function" "ingestion" {
 
   environment {
     variables = {
-      S3_BUCKET_NAME = var.s3_bucket_name
+      S3_BUCKET_NAME     = var.s3_bucket_name
+      GLUE_DATABASE_NAME = var.glue_database_name
     }
   }
 

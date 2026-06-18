@@ -163,6 +163,51 @@ def _determine_status(
     return "success"
 
 
+def _register_bronze_partition(bucket: str, year: str, month: str, day: str) -> None:
+    """Register a partition in the Glue Catalog bronze_pokemon table.
+
+    This allows Athena to query the data without manual MSCK REPAIR.
+
+    Args:
+        bucket: S3 bucket name.
+        year: Partition year value.
+        month: Partition month value.
+        day: Partition day value.
+    """
+    import boto3
+
+    glue_client = boto3.client("glue")
+    database_name = os.environ.get("GLUE_DATABASE_NAME", "")
+
+    if not database_name:
+        logger.warning("GLUE_DATABASE_NAME not set, skipping partition registration")
+        return
+
+    partition_location = f"s3://{bucket}/bronze/year={year}/month={month}/day={day}/"
+
+    try:
+        glue_client.create_partition(
+            DatabaseName=database_name,
+            TableName="bronze_pokemon",
+            PartitionInput={
+                "Values": [year, month, day],
+                "StorageDescriptor": {
+                    "Location": partition_location,
+                    "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                    "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                    "SerdeInfo": {
+                        "SerializationLibrary": "org.openx.data.jsonserde.JsonSerDe",
+                    },
+                },
+            },
+        )
+        logger.info("Registered partition year=%s/month=%s/day=%s", year, month, day)
+    except glue_client.exceptions.AlreadyExistsException:
+        logger.info("Partition year=%s/month=%s/day=%s already exists", year, month, day)
+    except Exception as e:
+        logger.warning("Failed to register partition: %s", str(e))
+
+
 def lambda_handler(event: dict, context) -> dict:
     """Lambda entry point for Pokemon data ingestion.
 
@@ -244,6 +289,10 @@ def lambda_handler(event: dict, context) -> dict:
         success_count,
         len(failed_pokemon),
     )
+
+    # Register partition in Glue Catalog if any data was written
+    if success_count > 0:
+        _register_bronze_partition(bucket, year, month, day)
 
     return {
         "status": status,

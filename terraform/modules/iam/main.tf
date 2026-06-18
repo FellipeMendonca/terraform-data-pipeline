@@ -61,6 +61,30 @@ resource "aws_iam_role_policy" "lambda_cloudwatch_logs" {
   })
 }
 
+resource "aws_iam_role_policy" "lambda_glue_partition" {
+  name = "${var.name_prefix}-lambda-glue-partition"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "glue:CreatePartition",
+          "glue:GetPartition",
+          "glue:BatchCreatePartition"
+        ]
+        Resource = [
+          "arn:aws:glue:${var.aws_region}:${var.account_id}:catalog",
+          "arn:aws:glue:${var.aws_region}:${var.account_id}:database/${replace(var.name_prefix, "-", "_")}_data_pipeline",
+          "arn:aws:glue:${var.aws_region}:${var.account_id}:table/${replace(var.name_prefix, "-", "_")}_data_pipeline/*"
+        ]
+      }
+    ]
+  })
+}
+
 ###############################################################################
 # Glue IAM Role
 ###############################################################################
