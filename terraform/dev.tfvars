@@ -1,10 +1,10 @@
 # Development environment - reduced sizing for cost efficiency
 aws_region                    = "us-east-1"
 lambda_memory_size            = 256
-lambda_timeout                = 600    # 10 minutes
+lambda_timeout                = 600
 glue_number_of_workers        = 2
 glue_worker_type              = "G.1X"
-glue_timeout                  = 30     # minutes
+glue_timeout                  = 30
 s3_bronze_retention_days      = 30
 s3_silver_retention_days      = 60
 s3_gold_retention_days        = 90
