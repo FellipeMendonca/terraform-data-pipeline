@@ -17,19 +17,19 @@ class TestGenerateS3Key:
 
     def test_standard_date_and_name(self):
         result = generate_s3_key("2024-01-15", "bulbasaur")
-        assert result == "bronze/2024/01/15/bulbasaur.json"
+        assert result == "bronze/year=2024/month=01/day=15/bulbasaur.json"
 
     def test_end_of_year_date(self):
         result = generate_s3_key("2023-12-31", "pikachu")
-        assert result == "bronze/2023/12/31/pikachu.json"
+        assert result == "bronze/year=2023/month=12/day=31/pikachu.json"
 
     def test_single_digit_month_and_day_preserved(self):
         result = generate_s3_key("2024-03-05", "charmander")
-        assert result == "bronze/2024/03/05/charmander.json"
+        assert result == "bronze/year=2024/month=03/day=05/charmander.json"
 
     def test_hyphenated_pokemon_name(self):
         result = generate_s3_key("2024-06-10", "mr-mime")
-        assert result == "bronze/2024/06/10/mr-mime.json"
+        assert result == "bronze/year=2024/month=06/day=10/mr-mime.json"
 
     def test_key_starts_with_bronze_prefix(self):
         result = generate_s3_key("2024-01-01", "eevee")
@@ -54,7 +54,7 @@ class TestWritePokemonData:
         assert result is True
         mock_s3.put_object.assert_called_once_with(
             Bucket="my-bucket",
-            Key="bronze/2024/01/15/bulbasaur.json",
+            Key="bronze/year=2024/month=01/day=15/bulbasaur.json",
             Body='{"id": 1, "name": "bulbasaur", "height": 7}',
             ContentType="application/json",
         )

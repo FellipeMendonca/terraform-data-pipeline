@@ -179,10 +179,11 @@ class TestProcessPokemon:
 class TestLambdaHandler:
     """Integration tests for the lambda_handler function."""
 
-    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket"})
+    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket", "GLUE_DATABASE_NAME": "test_db", "AWS_DEFAULT_REGION": "us-east-1"})
+    @patch("src.lambda.handler._register_bronze_partition")
     @patch("src.lambda.handler.PokeAPIClient")
     @patch("src.lambda.handler.write_pokemon_data")
-    def test_successful_execution(self, mock_write, mock_client_cls):
+    def test_successful_execution(self, mock_write, mock_client_cls, mock_register):
         mock_write.return_value = True
         mock_client = MagicMock()
         mock_client.get_pokemon_by_range.return_value = [{"name": "1", "id": 1}]
@@ -198,12 +199,14 @@ class TestLambdaHandler:
         assert result["status"] == "success"
         assert result["pokemon_count"] == 1
         assert result["failed_pokemon"] == []
-        assert result["s3_prefix"] == "bronze/2024/01/15/"
+        assert result["s3_prefix"] == "bronze/year=2024/month=01/day=15/"
+        mock_register.assert_called_once()
 
-    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket"})
+    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket", "GLUE_DATABASE_NAME": "test_db", "AWS_DEFAULT_REGION": "us-east-1"})
+    @patch("src.lambda.handler._register_bronze_partition")
     @patch("src.lambda.handler.PokeAPIClient")
     @patch("src.lambda.handler.write_pokemon_data")
-    def test_partial_failure_on_individual_pokemon(self, mock_write, mock_client_cls):
+    def test_partial_failure_on_individual_pokemon(self, mock_write, mock_client_cls, mock_register):
         mock_write.return_value = True
         mock_client = MagicMock()
         mock_client.get_pokemon_by_range.return_value = [
@@ -226,9 +229,10 @@ class TestLambdaHandler:
         assert result["pokemon_count"] == 1
         assert result["failed_pokemon"] == ["1"]
 
-    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket"})
+    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket", "GLUE_DATABASE_NAME": "test_db", "AWS_DEFAULT_REGION": "us-east-1"})
+    @patch("src.lambda.handler._register_bronze_partition")
     @patch("src.lambda.handler.PokeAPIClient")
-    def test_failure_when_all_pokemon_fail(self, mock_client_cls):
+    def test_failure_when_all_pokemon_fail(self, mock_client_cls, mock_register):
         mock_client = MagicMock()
         mock_client.get_pokemon_by_range.return_value = [{"name": "1", "id": 1}]
         mock_client.get_pokemon_details.return_value = None
@@ -243,8 +247,9 @@ class TestLambdaHandler:
         assert result["status"] == "failure"
         assert result["pokemon_count"] == 0
 
-    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket"})
-    def test_defaults_to_today_when_no_execution_date(self):
+    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket", "GLUE_DATABASE_NAME": "test_db", "AWS_DEFAULT_REGION": "us-east-1"})
+    @patch("src.lambda.handler._register_bronze_partition")
+    def test_defaults_to_today_when_no_execution_date(self, mock_register):
         from datetime import date
         context = MagicMock()
         context.get_remaining_time_in_millis.return_value = 900_000
@@ -263,7 +268,7 @@ class TestLambdaHandler:
             assert result["status"] == "success"
             today = date.today().isoformat()
             year, month, day = today.split("-")
-            assert result["s3_prefix"] == f"bronze/{year}/{month}/{day}/"
+            assert result["s3_prefix"] == f"bronze/year={year}/month={month}/day={day}/"
 
     @patch.dict("os.environ", {}, clear=True)
     def test_failure_when_no_bucket_env_var(self):
@@ -275,10 +280,11 @@ class TestLambdaHandler:
         assert result["status"] == "failure"
         assert result["pokemon_count"] == 0
 
-    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket"})
+    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket", "GLUE_DATABASE_NAME": "test_db", "AWS_DEFAULT_REGION": "us-east-1"})
+    @patch("src.lambda.handler._register_bronze_partition")
     @patch("src.lambda.handler.PokeAPIClient")
     @patch("src.lambda.handler.write_pokemon_data")
-    def test_timeout_returns_partial_failure(self, mock_write, mock_client_cls):
+    def test_timeout_returns_partial_failure(self, mock_write, mock_client_cls, mock_register):
         mock_write.return_value = True
         mock_client = MagicMock()
         mock_client.get_pokemon_by_range.return_value = [
@@ -289,11 +295,10 @@ class TestLambdaHandler:
         mock_client_cls.return_value = mock_client
 
         context = MagicMock()
-        # First call captures the total timeout, subsequent calls show low remaining
         context.get_remaining_time_in_millis.side_effect = [900_000, 100_000, 100_000]
 
         event = {"execution_date": "2024-01-15", "pokedex_start": 1, "pokedex_end": 2}
         result = lambda_handler(event, context)
 
         assert result["status"] == "partial_failure"
-        assert result["s3_prefix"] == "bronze/2024/01/15/"
+        assert result["s3_prefix"] == "bronze/year=2024/month=01/day=15/"
