@@ -17,12 +17,22 @@ from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from pyspark.sql import functions as F
 
-from src.glue.transformations import deduplicate, handle_nulls, standardize_types
-from src.glue.utils.spark_helpers import (
-    get_glue_catalog_columns,
-    log_transformation_error,
-    update_glue_catalog_table,
-)
+try:
+    # Glue runtime with extra-py-files
+    from transformations import deduplicate, handle_nulls, standardize_types
+    from utils.spark_helpers import (
+        get_glue_catalog_columns,
+        log_transformation_error,
+        update_glue_catalog_table,
+    )
+except ImportError:
+    # Local/test environment
+    from src.glue.transformations import deduplicate, handle_nulls, standardize_types
+    from src.glue.utils.spark_helpers import (
+        get_glue_catalog_columns,
+        log_transformation_error,
+        update_glue_catalog_table,
+    )
 
 
 def extract_primary_type(df):

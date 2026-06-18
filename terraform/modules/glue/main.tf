@@ -307,6 +307,24 @@ resource "aws_s3_object" "silver_to_gold_script" {
   tags = var.common_tags
 }
 
+# Package transformation and utility modules as a zip for --extra-py-files
+data "archive_file" "glue_modules" {
+  type        = "zip"
+  output_path = "${path.module}/../../../dist/glue_modules.zip"
+
+  source_dir = "${path.module}/../../../src/glue"
+  excludes   = ["bronze_to_silver.py", "silver_to_gold.py", "__init__.py"]
+}
+
+resource "aws_s3_object" "glue_modules" {
+  bucket = var.s3_bucket_name
+  key    = "glue-scripts/glue_modules.zip"
+  source = data.archive_file.glue_modules.output_path
+  etag   = data.archive_file.glue_modules.output_md5
+
+  tags = var.common_tags
+}
+
 # -----------------------------------------------------------------------------
 # Glue Job: Bronze to Silver
 # Transforms raw JSON data into cleaned/standardized Parquet
@@ -330,6 +348,7 @@ resource "aws_glue_job" "bronze_to_silver" {
   default_arguments = {
     "--job-language"        = "python"
     "--job-bookmark-option" = "job-bookmark-enable"
+    "--extra-py-files"      = "s3://${var.s3_bucket_name}/${aws_s3_object.glue_modules.key}"
     "--database_name"       = aws_glue_catalog_database.pipeline.name
     "--s3_bucket"           = var.s3_bucket_name
     "--bronze_prefix"       = "bronze/"
@@ -363,6 +382,7 @@ resource "aws_glue_job" "silver_to_gold" {
   default_arguments = {
     "--job-language"        = "python"
     "--job-bookmark-option" = "job-bookmark-enable"
+    "--extra-py-files"      = "s3://${var.s3_bucket_name}/${aws_s3_object.glue_modules.key}"
     "--database_name"       = aws_glue_catalog_database.pipeline.name
     "--s3_bucket"           = var.s3_bucket_name
     "--bronze_prefix"       = "bronze/"

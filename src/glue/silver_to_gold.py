@@ -14,7 +14,12 @@ from awsglue.job import Job
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 
-from src.glue.transformations.aggregations import aggregate_by_type
+try:
+    # Glue runtime with extra-py-files
+    from transformations.aggregations import aggregate_by_type
+except ImportError:
+    # Local/test environment
+    from src.glue.transformations.aggregations import aggregate_by_type
 
 # Configure logging
 logger = logging.getLogger(__name__)
