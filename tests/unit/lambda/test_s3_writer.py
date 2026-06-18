@@ -1,11 +1,15 @@
 """Unit tests for the S3 writer module."""
 
+import importlib
 from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.exceptions import ClientError
 
-from src.lambda.s3_writer import generate_s3_key, write_pokemon_data
+# 'lambda' is a Python reserved keyword, so we use importlib to import the module
+_s3_writer = importlib.import_module("src.lambda.s3_writer")
+generate_s3_key = _s3_writer.generate_s3_key
+write_pokemon_data = _s3_writer.write_pokemon_data
 
 
 class TestGenerateS3Key:
