@@ -185,14 +185,14 @@ class TestLambdaHandler:
     def test_successful_execution(self, mock_write, mock_client_cls):
         mock_write.return_value = True
         mock_client = MagicMock()
-        mock_client.get_pokemon_list.return_value = [{"name": "bulbasaur"}]
+        mock_client.get_pokemon_by_range.return_value = [{"name": "1", "id": 1}]
         mock_client.get_pokemon_details.return_value = {"id": 1, "name": "bulbasaur"}
         mock_client_cls.return_value = mock_client
 
         context = MagicMock()
         context.get_remaining_time_in_millis.return_value = 900_000
 
-        event = {"execution_date": "2024-01-15"}
+        event = {"execution_date": "2024-01-15", "pokedex_start": 1, "pokedex_end": 1}
         result = lambda_handler(event, context)
 
         assert result["status"] == "success"
@@ -206,54 +206,70 @@ class TestLambdaHandler:
     def test_partial_failure_on_individual_pokemon(self, mock_write, mock_client_cls):
         mock_write.return_value = True
         mock_client = MagicMock()
-        mock_client.get_pokemon_list.return_value = [
-            {"name": "bulbasaur"},
-            {"name": "charmander"},
+        mock_client.get_pokemon_by_range.return_value = [
+            {"name": "1", "id": 1},
+            {"name": "4", "id": 4},
         ]
         mock_client.get_pokemon_details.side_effect = [
-            None,  # bulbasaur fails
-            {"id": 4, "name": "charmander"},  # charmander succeeds
+            None,  # pokemon 1 fails
+            {"id": 4, "name": "charmander"},  # pokemon 4 succeeds
         ]
         mock_client_cls.return_value = mock_client
 
         context = MagicMock()
         context.get_remaining_time_in_millis.return_value = 900_000
 
-        event = {"execution_date": "2024-01-15"}
+        event = {"execution_date": "2024-01-15", "pokedex_start": 1, "pokedex_end": 4}
         result = lambda_handler(event, context)
 
         assert result["status"] == "partial_failure"
         assert result["pokemon_count"] == 1
-        assert result["failed_pokemon"] == ["bulbasaur"]
+        assert result["failed_pokemon"] == ["1"]
 
     @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket"})
     @patch("src.lambda.handler.PokeAPIClient")
-    def test_failure_when_list_fetch_fails(self, mock_client_cls):
+    def test_failure_when_all_pokemon_fail(self, mock_client_cls):
         mock_client = MagicMock()
-        mock_client.get_pokemon_list.side_effect = RuntimeError("API down")
+        mock_client.get_pokemon_by_range.return_value = [{"name": "1", "id": 1}]
+        mock_client.get_pokemon_details.return_value = None
         mock_client_cls.return_value = mock_client
 
         context = MagicMock()
         context.get_remaining_time_in_millis.return_value = 900_000
 
-        event = {"execution_date": "2024-01-15"}
+        event = {"execution_date": "2024-01-15", "pokedex_start": 1, "pokedex_end": 1}
         result = lambda_handler(event, context)
 
         assert result["status"] == "failure"
         assert result["pokemon_count"] == 0
 
-    def test_failure_when_no_execution_date(self):
+    @patch.dict("os.environ", {"S3_BUCKET_NAME": "test-bucket"})
+    def test_defaults_to_today_when_no_execution_date(self):
+        from datetime import date
         context = MagicMock()
-        event = {}
-        result = lambda_handler(event, context)
+        context.get_remaining_time_in_millis.return_value = 900_000
 
-        assert result["status"] == "failure"
-        assert result["pokemon_count"] == 0
+        with patch("src.lambda.handler.PokeAPIClient") as mock_client_cls, \
+             patch("src.lambda.handler.write_pokemon_data") as mock_write:
+            mock_write.return_value = True
+            mock_client = MagicMock()
+            mock_client.get_pokemon_by_range.return_value = [{"name": "1", "id": 1}]
+            mock_client.get_pokemon_details.return_value = {"id": 1, "name": "bulbasaur"}
+            mock_client_cls.return_value = mock_client
+
+            event = {"pokedex_start": 1, "pokedex_end": 1}
+            result = lambda_handler(event, context)
+
+            assert result["status"] == "success"
+            today = date.today().isoformat()
+            year, month, day = today.split("-")
+            assert result["s3_prefix"] == f"bronze/{year}/{month}/{day}/"
 
     @patch.dict("os.environ", {}, clear=True)
     def test_failure_when_no_bucket_env_var(self):
         context = MagicMock()
-        event = {"execution_date": "2024-01-15"}
+        context.get_remaining_time_in_millis.return_value = 900_000
+        event = {"execution_date": "2024-01-15", "pokedex_start": 1, "pokedex_end": 1}
         result = lambda_handler(event, context)
 
         assert result["status"] == "failure"
@@ -265,9 +281,9 @@ class TestLambdaHandler:
     def test_timeout_returns_partial_failure(self, mock_write, mock_client_cls):
         mock_write.return_value = True
         mock_client = MagicMock()
-        mock_client.get_pokemon_list.return_value = [
-            {"name": "bulbasaur"},
-            {"name": "charmander"},
+        mock_client.get_pokemon_by_range.return_value = [
+            {"name": "1", "id": 1},
+            {"name": "2", "id": 2},
         ]
         mock_client.get_pokemon_details.return_value = {"id": 1, "name": "bulbasaur"}
         mock_client_cls.return_value = mock_client
@@ -276,7 +292,7 @@ class TestLambdaHandler:
         # First call captures the total timeout, subsequent calls show low remaining
         context.get_remaining_time_in_millis.side_effect = [900_000, 100_000, 100_000]
 
-        event = {"execution_date": "2024-01-15"}
+        event = {"execution_date": "2024-01-15", "pokedex_start": 1, "pokedex_end": 2}
         result = lambda_handler(event, context)
 
         assert result["status"] == "partial_failure"
