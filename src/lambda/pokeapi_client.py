@@ -133,10 +133,10 @@ class PokeAPIClient:
         return all_pokemon
 
     def get_pokemon_details(self, name: str) -> dict | None:
-        """Fetch detailed data for a single Pokémon by name.
+        """Fetch detailed data for a single Pokémon by name or ID.
 
         Args:
-            name: The Pokémon name (e.g., "bulbasaur").
+            name: The Pokémon name (e.g., "bulbasaur") or ID (e.g., "1").
 
         Returns:
             A dict with the Pokémon's full data, or None if all retries fail.
@@ -148,6 +148,24 @@ class PokeAPIClient:
             logger.error("Failed to fetch details for Pokémon: %s", name)
 
         return data
+
+    def get_pokemon_by_range(self, start: int, end: int) -> list[dict]:
+        """Generate a list of Pokemon entries for a given Pokedex range.
+
+        Instead of paginating the full API, generates entries with IDs
+        from start to end (inclusive) for direct detail fetching.
+
+        Args:
+            start: First Pokedex number (e.g., 1).
+            end: Last Pokedex number (e.g., 151).
+
+        Returns:
+            A list of dicts with 'id' and 'name' keys (name is the str(id)
+            which works with get_pokemon_details).
+        """
+        pokemon_list = [{"name": str(i), "id": i} for i in range(start, end + 1)]
+        logger.info("Generated Pokémon range: %d to %d (%d total)", start, end, len(pokemon_list))
+        return pokemon_list
 
     def _request(self, endpoint: str) -> dict | None:
         """Make an HTTP GET request with rate limiting and retry logic.

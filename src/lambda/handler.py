@@ -5,16 +5,20 @@ Pokemon data from PokeAPI and writing it to S3 Bronze layer.
 Supports timeout monitoring and partial failure handling.
 """
 
-import importlib
 import logging
 import os
 
-# 'lambda' is a Python reserved keyword, so we use importlib
-_pokeapi_client = importlib.import_module("src.lambda.pokeapi_client")
-_s3_writer = importlib.import_module("src.lambda.s3_writer")
-
-PokeAPIClient = _pokeapi_client.PokeAPIClient
-write_pokemon_data = _s3_writer.write_pokemon_data
+try:
+    # Lambda runtime: files are at the root of the zip
+    from pokeapi_client import PokeAPIClient
+    from s3_writer import write_pokemon_data
+except ImportError:
+    # Local/test environment: use full module path via importlib
+    import importlib
+    _pokeapi_client = importlib.import_module("src.lambda.pokeapi_client")
+    _s3_writer = importlib.import_module("src.lambda.s3_writer")
+    PokeAPIClient = _pokeapi_client.PokeAPIClient
+    write_pokemon_data = _s3_writer.write_pokemon_data
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -111,18 +115,21 @@ def _process_pokemon(
             )
             break
 
-        # Fetch individual Pokemon details
+        # Fetch individual Pokemon details (by ID or name)
         details = client.get_pokemon_details(name)
         if details is None:
             logger.warning("Failed to fetch details for Pokemon: %s", name)
             failed_pokemon.append(name)
             continue
 
+        # Use the real Pokemon name from the API response for the S3 key
+        pokemon_name = details.get("name", name)
+
         # Write to S3
-        write_success = write_pokemon_data(bucket, execution_date, name, details)
+        write_success = write_pokemon_data(bucket, execution_date, pokemon_name, details)
         if not write_success:
-            logger.warning("Failed to write Pokemon to S3: %s", name)
-            failed_pokemon.append(name)
+            logger.warning("Failed to write Pokemon to S3: %s", pokemon_name)
+            failed_pokemon.append(pokemon_name)
             continue
 
         success_count += 1
@@ -159,11 +166,14 @@ def _determine_status(
 def lambda_handler(event: dict, context) -> dict:
     """Lambda entry point for Pokemon data ingestion.
 
-    Orchestrates the full ingestion flow: fetches Pokemon list from PokeAPI,
-    retrieves details for each Pokemon, and writes them to S3 Bronze layer.
+    Orchestrates the full ingestion flow: fetches Pokemon by Pokedex range
+    from PokeAPI, retrieves details for each Pokemon, and writes them to S3 Bronze layer.
 
     Args:
-        event: Input from Step Functions containing {"execution_date": "YYYY-MM-DD"}.
+        event: Input from Step Functions containing:
+            - pokedex_start (int): First Pokedex number (e.g., 1)
+            - pokedex_end (int): Last Pokedex number (e.g., 151)
+            - execution_date (str, optional): Date in YYYY-MM-DD format. Defaults to today.
         context: AWS Lambda context object providing timeout information.
 
     Returns:
@@ -171,23 +181,23 @@ def lambda_handler(event: dict, context) -> dict:
     """
     execution_date = event.get("execution_date", "")
     bucket = os.environ.get("S3_BUCKET_NAME", "")
+    pokedex_start = event.get("pokedex_start", 1)
+    pokedex_end = event.get("pokedex_end", 151)
+
+    # Fallback to current date if execution_date not provided
+    if not execution_date:
+        from datetime import date
+        execution_date = date.today().isoformat()
 
     logger.info(
-        "Starting Pokemon ingestion. execution_date=%s, bucket=%s",
+        "Starting Pokemon ingestion. execution_date=%s, bucket=%s, range=%d-%d",
         execution_date,
         bucket,
+        pokedex_start,
+        pokedex_end,
     )
 
     # Validate inputs
-    if not execution_date:
-        logger.error("Missing execution_date in event")
-        return {
-            "status": "failure",
-            "pokemon_count": 0,
-            "failed_pokemon": [],
-            "s3_prefix": "",
-        }
-
     if not bucket:
         logger.error("Missing S3_BUCKET_NAME environment variable")
         return {
@@ -207,15 +217,8 @@ def lambda_handler(event: dict, context) -> dict:
     # Initialize API client
     client = PokeAPIClient()
 
-    # Fetch Pokemon list
-    pokemon_list = _fetch_pokemon_list(client)
-    if pokemon_list is None:
-        return {
-            "status": "failure",
-            "pokemon_count": 0,
-            "failed_pokemon": [],
-            "s3_prefix": s3_prefix,
-        }
+    # Build Pokemon list from Pokedex range
+    pokemon_list = client.get_pokemon_by_range(pokedex_start, pokedex_end)
 
     # Process each Pokemon
     success_count, failed_pokemon, timeout_reached = _process_pokemon(
