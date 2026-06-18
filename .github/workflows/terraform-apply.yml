@@ -1,0 +1,63 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main, develop]
+
+env:
+  TF_WORKSPACE: ${{ github.ref_name == 'main' && 'prd' || 'dev' }}
+  TF_VAR_FILE: ${{ github.ref_name == 'main' && 'prd.tfvars' || 'dev.tfvars' }}
+
+jobs:
+  terraform-apply:
+    name: Terraform Apply (${{ github.ref_name == 'main' && 'prd' || 'dev' }})
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install pytest hypothesis pyspark chispa boto3 requests
+        working-directory: .
+
+      - name: Run pytest
+        run: pytest tests/unit/ tests/property/ -v
+        working-directory: .
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Workspace Select
+        run: terraform workspace select $TF_WORKSPACE || terraform workspace new $TF_WORKSPACE
+
+      - name: Terraform Plan
+        run: terraform plan -var-file=$TF_VAR_FILE
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file=$TF_VAR_FILE

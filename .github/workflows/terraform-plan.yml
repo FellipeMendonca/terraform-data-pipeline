@@ -1,0 +1,137 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+env:
+  TF_WORKSPACE: ${{ github.base_ref == 'main' && 'prd' || 'dev' }}
+  TF_VAR_FILE: ${{ github.base_ref == 'main' && 'prd.tfvars' || 'dev.tfvars' }}
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan (${{ github.base_ref == 'main' && 'prd' || 'dev' }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        id: init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Format Check
+        id: fmt
+        working-directory: terraform
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: terraform
+        run: terraform validate -no-color
+        continue-on-error: true
+
+      - name: Terraform Workspace Select
+        id: workspace
+        working-directory: terraform
+        run: terraform workspace select $TF_WORKSPACE || terraform workspace new $TF_WORKSPACE
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform
+        run: terraform plan -var-file=$TF_VAR_FILE -no-color
+        continue-on-error: true
+
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fmtOutcome = '${{ steps.fmt.outcome }}';
+            const validateOutcome = '${{ steps.validate.outcome }}';
+            const planOutcome = '${{ steps.plan.outcome }}';
+            const plan = `${{ steps.plan.outputs.stdout }}`;
+            const planError = `${{ steps.plan.outputs.stderr }}`;
+
+            let body = `## Terraform Plan - \`${process.env.TF_WORKSPACE}\` workspace
+
+            | Step | Status |
+            |------|--------|
+            | 🖌 Format | \`${fmtOutcome}\` |
+            | ✅ Validate | \`${validateOutcome}\` |
+            | 📖 Plan | \`${planOutcome}\` |
+
+            `;
+
+            if (fmtOutcome === 'failure') {
+              body += `### ❌ Format Check Failed
+            \`terraform fmt -check\` found formatting issues. Please run \`terraform fmt\` to fix them.
+
+            `;
+            }
+
+            if (validateOutcome === 'failure') {
+              body += `### ❌ Validation Failed
+            \`terraform validate\` found configuration errors.
+
+            `;
+            }
+
+            if (planOutcome === 'success') {
+              body += `### Plan Output
+            <details><summary>Show Plan</summary>
+
+            \`\`\`terraform
+            ${plan}
+            \`\`\`
+
+            </details>
+            `;
+            } else if (planOutcome === 'failure') {
+              body += `### ❌ Plan Failed
+            <details><summary>Show Error</summary>
+
+            \`\`\`
+            ${planError}
+            \`\`\`
+
+            </details>
+            `;
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Fail on format check error
+        if: steps.fmt.outcome == 'failure'
+        run: exit 1
+
+      - name: Fail on validation error
+        if: steps.validate.outcome == 'failure'
+        run: exit 1
+
+      - name: Fail on plan error
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
