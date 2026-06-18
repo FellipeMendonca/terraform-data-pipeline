@@ -155,9 +155,15 @@ def main():
             "s3_bucket",
             "bronze_prefix",
             "silver_prefix",
-            "execution_date",
         ],
     )
+
+    # execution_date is optional, defaults to today
+    try:
+        extra_args = getResolvedOptions(sys.argv, ["execution_date"])
+        args["execution_date"] = extra_args["execution_date"]
+    except Exception:
+        args["execution_date"] = date.today().isoformat()
 
     sc = SparkContext()
     glue_context = GlueContext(sc)
