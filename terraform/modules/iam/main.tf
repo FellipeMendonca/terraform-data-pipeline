@@ -111,9 +111,7 @@ resource "aws_iam_role_policy" "glue_s3_access" {
           "s3:DeleteObject"
         ]
         Resource = [
-          "${var.s3_bucket_arn}/bronze/*",
-          "${var.s3_bucket_arn}/silver/*",
-          "${var.s3_bucket_arn}/gold/*"
+          "${var.s3_bucket_arn}/*"
         ]
       }
     ]
