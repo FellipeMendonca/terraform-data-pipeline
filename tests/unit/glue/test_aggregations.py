@@ -45,7 +45,7 @@ class TestAggregateByType:
         rows = {row.type: row for row in result.collect()}
 
         # Verify grass type aggregations
-        assert rows["grass"].count == 4
+        assert rows["grass"]["count"] == 4
         assert rows["grass"].avg_height == pytest.approx(11.25)
         assert rows["grass"].min_height == 7
         assert rows["grass"].max_height == 20
@@ -54,13 +54,13 @@ class TestAggregateByType:
         assert rows["grass"].max_weight == 1000
 
         # Verify fire type aggregations
-        assert rows["fire"].count == 3
+        assert rows["fire"]["count"] == 3
         assert rows["fire"].avg_height == pytest.approx((6 + 11 + 17) / 3)
         assert rows["fire"].min_height == 6
         assert rows["fire"].max_height == 17
 
         # Verify water type aggregations
-        assert rows["water"].count == 3
+        assert rows["water"]["count"] == 3
         assert rows["water"].avg_height == pytest.approx((5 + 10 + 16) / 3)
         assert rows["water"].min_height == 5
         assert rows["water"].max_height == 16
@@ -118,7 +118,7 @@ class TestAggregateByType:
         assert result.count() == 1
         row = result.collect()[0]
         assert row.type == "grass"
-        assert row.count == 10
+        assert row["count"] == 10
 
         # Mathematically verify avg_height: sum of heights / 10
         expected_avg_height = (7 + 10 + 20 + 8 + 8 + 12 + 7 + 10 + 17 + 4) / 10
