@@ -1,0 +1,13 @@
+[project]
+name = "terraform-data-pipeline"
+version = "0.1.0"
+description = "Serverless data pipeline for Pokemon data ingestion and transformation"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "tests*"]
