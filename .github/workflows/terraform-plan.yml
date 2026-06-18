@@ -51,7 +51,7 @@ jobs:
       - name: Terraform Workspace Select
         id: workspace
         working-directory: terraform
-        run: terraform workspace select $TF_WORKSPACE || terraform workspace new $TF_WORKSPACE
+        run: terraform workspace select $TF_WORKSPACE 2>/dev/null || terraform workspace new $TF_WORKSPACE 2>/dev/null || true
 
       - name: Terraform Plan
         id: plan

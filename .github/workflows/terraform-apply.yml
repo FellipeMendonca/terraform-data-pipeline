@@ -54,7 +54,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Workspace Select
-        run: terraform workspace select $TF_WORKSPACE || terraform workspace new $TF_WORKSPACE
+        run: terraform workspace select $TF_WORKSPACE 2>/dev/null || terraform workspace new $TF_WORKSPACE 2>/dev/null || true
 
       - name: Terraform Plan
         run: terraform plan -var-file=$TF_VAR_FILE
