@@ -183,6 +183,17 @@ def run_bronze_to_silver(glue_context, args):
         current_step = "extract_primary_type"
         df = extract_primary_type(df)
 
+        # Step 5.5: Select only Silver layer columns (drop raw PokeAPI extras)
+        current_step = "select_columns"
+        silver_columns = [
+            "id", "name", "height", "weight", "base_experience",
+            "primary_type", "types", "abilities",
+            "hp", "attack", "defense", "special_attack", "special_defense", "speed",
+        ]
+        # Only select columns that exist in the DataFrame
+        available_columns = [c for c in silver_columns if c in df.columns]
+        df = df.select(*available_columns)
+
         # Step 6: Write Parquet to Silver layer partitioned by primary_type
         current_step = "write_silver"
         df.write.mode("overwrite").partitionBy("primary_type").parquet(silver_path)

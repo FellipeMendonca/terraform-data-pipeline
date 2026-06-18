@@ -58,19 +58,18 @@ def standardize_types(df: DataFrame) -> DataFrame:
         elif isinstance(types_col.dataType, T.ArrayType):
             element_type = types_col.dataType.elementType
             if isinstance(element_type, T.StructType) and "type" in element_type.fieldNames():
-                # Already parsed as array of structs with nested type field
                 result = result.withColumn(
                     "types",
                     F.transform(F.col("types"), lambda x: x.getField("type").getField("name")),
                 )
-            # If already array of strings, leave as-is
+        # Ensure final type is array<string> for Athena compatibility
+        result = result.withColumn("types", F.col("types").cast(T.ArrayType(T.StringType())))
 
     # Convert abilities field: extract ability names from nested JSON structure
     # Expected input format: [{"ability": {"name": "overgrow", "url": "..."}, ...}, ...]
     if "abilities" in result.columns:
         abilities_col = result.schema["abilities"]
         if isinstance(abilities_col.dataType, T.StringType):
-            # If abilities is a JSON string, parse it and extract ability names
             schema = T.ArrayType(
                 T.StructType([
                     T.StructField("ability", T.StructType([
@@ -89,13 +88,13 @@ def standardize_types(df: DataFrame) -> DataFrame:
         elif isinstance(abilities_col.dataType, T.ArrayType):
             element_type = abilities_col.dataType.elementType
             if isinstance(element_type, T.StructType) and "ability" in element_type.fieldNames():
-                # Already parsed as array of structs with nested ability field
                 result = result.withColumn(
                     "abilities",
                     F.transform(
                         F.col("abilities"), lambda x: x.getField("ability").getField("name")
                     ),
                 )
-            # If already array of strings, leave as-is
+        # Ensure final type is array<string> for Athena compatibility
+        result = result.withColumn("abilities", F.col("abilities").cast(T.ArrayType(T.StringType())))
 
     return result
