@@ -183,16 +183,17 @@ src/lambda/
 ```
 
 **Interfaces**:
-- **Input** (from Step Functions): `{ "execution_date": "YYYY-MM-DD" }`
+- **Input** (from Step Functions): `{ "pokedex_start": 1, "pokedex_end": 151, "execution_date": "YYYY-MM-DD" }` (execution_date is optional, defaults to today)
 - **Output** (to Step Functions): `{ "status": "success|partial_failure|failure", "pokemon_count": int, "failed_pokemon": [str], "s3_prefix": str }`
 
 **Key behaviors**:
-- Paginates through `/api/v2/pokemon` endpoint to get complete Pokémon list
-- Fetches individual Pokémon details with 500ms minimum interval between requests
+- Receives a Pokédex range (start/end) and fetches details for each Pokémon by ID
+- Fetches individual Pokémon details from `/api/v2/pokemon/{id}` with 500ms minimum interval between requests
 - Max 100 requests/minute rate limiting
 - Exponential backoff retry (3 attempts) on HTTP errors
 - Saves one JSON file per Pokémon: `bronze/YYYY/MM/DD/{pokemon_name}.json`
 - Monitors execution time; saves partial results at 80% timeout threshold
+- execution_date defaults to current date if not provided in the event
 
 ### 2. Glue Job: Bronze to Silver
 

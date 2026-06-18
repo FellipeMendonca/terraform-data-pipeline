@@ -37,11 +37,11 @@ Este documento define os requisitos para uma Pipeline de Dados implementada com 
 
 #### Critérios de Aceitação
 
-1. WHEN a Step_Function inicia a execução da pipeline, THE Lambda_Function SHALL realizar requisições HTTP GET ao endpoint /api/v2/pokemon da PokeAPI (pokeapi.co), percorrendo todas as páginas disponíveis até obter a lista completa de Pokémon
+1. WHEN a Step_Function inicia a execução da pipeline, THE Lambda_Function SHALL realizar requisições HTTP GET ao endpoint /api/v2/pokemon/{id} da PokeAPI (pokeapi.co) para cada Pokémon no range definido pelos parâmetros pokedex_start e pokedex_end (inclusive), onde cada parâmetro representa um número da Pokédex Nacional
 2. WHEN a Lambda_Function obtém dados da PokeAPI com sucesso, THE Lambda_Function SHALL salvar os dados em formato JSON no S3_Bucket na Bronze_Layer, com um arquivo por Pokémon obtido
 3. WHEN a Lambda_Function salva dados no S3_Bucket, THE Lambda_Function SHALL organizar os arquivos utilizando particionamento por data no formato ano/mês/dia (YYYY/MM/DD) baseado na data de execução
 4. IF a PokeAPI retorna um erro HTTP (status 4xx ou 5xx) ou não responde dentro de 30 segundos por requisição, THEN THE Lambda_Function SHALL registrar o erro no CloudWatch incluindo o endpoint chamado e o código de erro, e realizar até 3 tentativas com intervalo exponencial antes de marcar o Pokémon como falho
-5. IF a Lambda_Function atinge 80% do seu limite de tempo de execução configurado, THEN THE Lambda_Function SHALL salvar no S3_Bucket os dados dos Pokémon já obtidos com sucesso, registrar no CloudWatch quais Pokémon não foram processados, e retornar status de falha parcial para a Step_Function
+5. IF a Lambda_Function atinge 80% do seu limite de tempo de execução configurado, THEN THE Lambda_Function SHALL salvar no S3_Bucket os dados dos Pokémon já obtidos com sucesso, registrar no CloudWatch quais Pokémon não foram processados, e retornar status de falha parcial para a Step_Function. A data de execução (execution_date) é opcional no input; se não fornecida, a Lambda_Function utilizará a data atual (UTC) como data de execução
 6. THE Lambda_Function SHALL respeitar os rate limits da PokeAPI realizando no máximo 100 requisições por minuto, com intervalo mínimo de 500 milissegundos entre requisições consecutivas
 7. IF a Lambda_Function falha ao obter dados de um ou mais Pokémon individuais após as tentativas de retry, THEN THE Lambda_Function SHALL continuar processando os demais Pokémon, salvar os dados obtidos com sucesso na Bronze_Layer, e retornar para a Step_Function a lista de Pokémon que falharam
 
