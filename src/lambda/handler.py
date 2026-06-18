@@ -212,7 +212,7 @@ def lambda_handler(event: dict, context) -> dict:
 
     # Build S3 prefix from execution date
     year, month, day = execution_date.split("-")
-    s3_prefix = f"bronze/{year}/{month}/{day}/"
+    s3_prefix = f"bronze/year={year}/month={month}/day={day}/"
 
     # Initialize API client
     client = PokeAPIClient()

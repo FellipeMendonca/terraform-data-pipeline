@@ -154,7 +154,7 @@ def run_bronze_to_silver(glue_context, args):
 
     bronze_path = (
         f"s3://{s3_bucket}/{bronze_prefix}/"
-        f"{exec_date.year}/{exec_date.month:02d}/{exec_date.day:02d}/"
+        f"year={exec_date.year}/month={exec_date.month:02d}/day={exec_date.day:02d}/"
     )
     silver_path = f"s3://{s3_bucket}/{silver_prefix}/"
 

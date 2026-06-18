@@ -95,6 +95,7 @@ resource "aws_glue_catalog_table" "bronze_pokemon" {
 # -----------------------------------------------------------------------------
 # Silver Layer Table - Cleaned and standardized Parquet data
 # Partitioned by primary Pokémon type
+# Schema is managed by the Glue job after each successful run
 # -----------------------------------------------------------------------------
 
 resource "aws_glue_catalog_table" "silver_pokemon" {
@@ -115,87 +116,22 @@ resource "aws_glue_catalog_table" "silver_pokemon" {
     ser_de_info {
       serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
     }
-
-    columns {
-      name = "id"
-      type = "int"
-    }
-
-    columns {
-      name = "name"
-      type = "string"
-    }
-
-    columns {
-      name = "height"
-      type = "int"
-    }
-
-    columns {
-      name = "weight"
-      type = "int"
-    }
-
-    columns {
-      name = "base_experience"
-      type = "int"
-    }
-
-    columns {
-      name = "secondary_type"
-      type = "string"
-    }
-
-    columns {
-      name = "types"
-      type = "array<string>"
-    }
-
-    columns {
-      name = "abilities"
-      type = "array<string>"
-    }
-
-    columns {
-      name = "hp"
-      type = "int"
-    }
-
-    columns {
-      name = "attack"
-      type = "int"
-    }
-
-    columns {
-      name = "defense"
-      type = "int"
-    }
-
-    columns {
-      name = "special_attack"
-      type = "int"
-    }
-
-    columns {
-      name = "special_defense"
-      type = "int"
-    }
-
-    columns {
-      name = "speed"
-      type = "int"
-    }
   }
 
   partition_keys {
     name = "primary_type"
     type = "string"
   }
+
+  lifecycle {
+    ignore_changes = [storage_descriptor[0].columns]
+  }
 }
 
 # -----------------------------------------------------------------------------
 # Gold Layer Table - Aggregated stats by Pokémon type
 # Partitioned by type
+# Schema is managed by the Glue job after each successful run
 # -----------------------------------------------------------------------------
 
 resource "aws_glue_catalog_table" "gold_pokemon_stats" {
@@ -216,71 +152,15 @@ resource "aws_glue_catalog_table" "gold_pokemon_stats" {
     ser_de_info {
       serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
     }
-
-    columns {
-      name = "count"
-      type = "int"
-    }
-
-    columns {
-      name = "avg_height"
-      type = "double"
-    }
-
-    columns {
-      name = "min_height"
-      type = "int"
-    }
-
-    columns {
-      name = "max_height"
-      type = "int"
-    }
-
-    columns {
-      name = "avg_weight"
-      type = "double"
-    }
-
-    columns {
-      name = "min_weight"
-      type = "int"
-    }
-
-    columns {
-      name = "max_weight"
-      type = "int"
-    }
-
-    columns {
-      name = "avg_base_experience"
-      type = "double"
-    }
-
-    columns {
-      name = "avg_hp"
-      type = "double"
-    }
-
-    columns {
-      name = "avg_attack"
-      type = "double"
-    }
-
-    columns {
-      name = "avg_defense"
-      type = "double"
-    }
-
-    columns {
-      name = "avg_speed"
-      type = "double"
-    }
   }
 
   partition_keys {
     name = "type"
     type = "string"
+  }
+
+  lifecycle {
+    ignore_changes = [storage_descriptor[0].columns]
   }
 }
 

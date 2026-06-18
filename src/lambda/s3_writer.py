@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 def generate_s3_key(date: str, name: str) -> str:
     """Generate the S3 key path for a Pokemon JSON file.
 
-    Creates a date-partitioned path in the bronze layer following the pattern:
-    bronze/{year}/{month}/{day}/{name}.json
+    Creates a Hive-style date-partitioned path in the bronze layer following:
+    bronze/year=YYYY/month=MM/day=DD/{name}.json
 
     Args:
         date: Execution date string in YYYY-MM-DD format.
@@ -27,7 +27,7 @@ def generate_s3_key(date: str, name: str) -> str:
         The S3 key path string.
     """
     year, month, day = date.split("-")
-    return f"bronze/{year}/{month}/{day}/{name}.json"
+    return f"bronze/year={year}/month={month}/day={day}/{name}.json"
 
 
 def write_pokemon_data(bucket: str, execution_date: str, pokemon_name: str, data: dict) -> bool:
