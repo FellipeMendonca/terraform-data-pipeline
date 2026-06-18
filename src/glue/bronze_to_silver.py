@@ -56,6 +56,73 @@ def extract_primary_type(df):
     )
 
 
+def _extract_stats(df):
+    """Extract individual stat values from the nested stats array.
+
+    The PokeAPI stats field is an array of structs like:
+    [{"base_stat": 45, "effort": 0, "stat": {"name": "hp", "url": "..."}}, ...]
+
+    This function extracts each stat into its own column: hp, attack, defense,
+    special_attack, special_defense, speed.
+
+    Args:
+        df: DataFrame with a 'stats' column (array of structs or JSON string).
+
+    Returns:
+        DataFrame with individual stat columns added.
+    """
+    from pyspark.sql import types as T
+
+    if "stats" not in df.columns:
+        # If stats column doesn't exist, add zero-value columns
+        for stat_name in ["hp", "attack", "defense", "special_attack", "special_defense", "speed"]:
+            df = df.withColumn(stat_name, F.lit(0))
+        return df
+
+    # Check if stats is a string (needs parsing) or already structured
+    stats_col = df.schema["stats"]
+    if isinstance(stats_col.dataType, T.StringType):
+        # Parse JSON string
+        stats_schema = T.ArrayType(
+            T.StructType([
+                T.StructField("base_stat", T.IntegerType()),
+                T.StructField("effort", T.IntegerType()),
+                T.StructField("stat", T.StructType([
+                    T.StructField("name", T.StringType()),
+                    T.StructField("url", T.StringType()),
+                ])),
+            ])
+        )
+        df = df.withColumn("stats_parsed", F.from_json(F.col("stats"), stats_schema))
+    else:
+        df = df.withColumn("stats_parsed", F.col("stats"))
+
+    # Map stat names to column names
+    stat_mapping = {
+        "hp": "hp",
+        "attack": "attack",
+        "defense": "defense",
+        "special-attack": "special_attack",
+        "special-defense": "special_defense",
+        "speed": "speed",
+    }
+
+    # Extract each stat by filtering the array
+    for api_name, col_name in stat_mapping.items():
+        df = df.withColumn(
+            col_name,
+            F.coalesce(
+                F.filter(F.col("stats_parsed"), lambda x: x.getField("stat").getField("name") == api_name)[0].getField("base_stat"),
+                F.lit(0),
+            ),
+        )
+
+    # Drop the temporary parsed column
+    df = df.drop("stats_parsed")
+
+    return df
+
+
 def run_bronze_to_silver(glue_context, args):
     """Execute the Bronze to Silver transformation pipeline.
 
@@ -103,6 +170,10 @@ def run_bronze_to_silver(glue_context, args):
         # Step 3: Standardize data types
         current_step = "standardize_types"
         df = standardize_types(df)
+
+        # Step 3.5: Extract individual stats from the stats array
+        current_step = "extract_stats"
+        df = _extract_stats(df)
 
         # Step 4: Handle null values
         current_step = "handle_nulls"
