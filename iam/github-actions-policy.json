@@ -28,25 +28,7 @@
     {
       "Sid": "LambdaManagement",
       "Effect": "Allow",
-      "Action": [
-        "lambda:CreateFunction",
-        "lambda:DeleteFunction",
-        "lambda:GetFunction",
-        "lambda:GetFunctionConfiguration",
-        "lambda:GetFunctionCodeSigningConfig",
-        "lambda:GetCodeSigningConfig",
-        "lambda:ListCodeSigningConfigs",
-        "lambda:UpdateFunctionCode",
-        "lambda:UpdateFunctionConfiguration",
-        "lambda:ListVersionsByFunction",
-        "lambda:PublishVersion",
-        "lambda:AddPermission",
-        "lambda:RemovePermission",
-        "lambda:TagResource",
-        "lambda:UntagResource",
-        "lambda:ListTags",
-        "lambda:GetPolicy"
-      ],
+      "Action": "lambda:*",
       "Resource": "arn:aws:lambda:us-east-1:163867913141:function:*-pokemon-*"
     },
     {
@@ -129,16 +111,7 @@
     {
       "Sid": "StepFunctionsManagement",
       "Effect": "Allow",
-      "Action": [
-        "states:CreateStateMachine",
-        "states:DeleteStateMachine",
-        "states:DescribeStateMachine",
-        "states:UpdateStateMachine",
-        "states:ListStateMachines",
-        "states:TagResource",
-        "states:UntagResource",
-        "states:ListTagsForResource"
-      ],
+      "Action": "states:*",
       "Resource": "arn:aws:states:us-east-1:163867913141:stateMachine:*-pokemon-*"
     },
     {
