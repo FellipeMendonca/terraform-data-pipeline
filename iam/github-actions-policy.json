@@ -112,7 +112,7 @@
       "Sid": "StepFunctionsManagement",
       "Effect": "Allow",
       "Action": "states:*",
-      "Resource": "arn:aws:states:us-east-1:163867913141:stateMachine:*-pokemon-*"
+      "Resource": "*"
     },
     {
       "Sid": "IAMRoleManagement",
